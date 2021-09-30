@@ -20,7 +20,9 @@ import (
 
 	"github.com/jonboulle/clockwork"
 	"github.com/tektoncd/cli/pkg/test"
-	v1alpha1 "github.com/tektoncd/triggers/pkg/apis/triggers/v1beta1"
+	cb "github.com/tektoncd/cli/pkg/test/builder"
+	testDynamic "github.com/tektoncd/cli/pkg/test/dynamic"
+	"github.com/tektoncd/triggers/pkg/apis/triggers/v1beta1"
 	triggertest "github.com/tektoncd/triggers/test"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,7 +31,7 @@ import (
 func TestEventListener_GetAllEventListenerNames(t *testing.T) {
 	clock := clockwork.NewFakeClock()
 
-	els := []*v1alpha1.EventListener{
+	els := []*v1beta1.EventListener{
 		{
 			ObjectMeta: v1.ObjectMeta{
 				Name:              "el1",
@@ -39,7 +41,7 @@ func TestEventListener_GetAllEventListenerNames(t *testing.T) {
 		},
 	}
 
-	els2 := []*v1alpha1.EventListener{
+	els2 := []*v1beta1.EventListener{
 		{
 			ObjectMeta: v1.ObjectMeta{
 				Name:              "el1",
@@ -66,9 +68,28 @@ func TestEventListener_GetAllEventListenerNames(t *testing.T) {
 			Name: "ns",
 		},
 	}}})
-	p := &test.Params{Triggers: cs.Triggers, Kube: cs.Kube}
-	p2 := &test.Params{Triggers: cs2.Triggers, Kube: cs2.Kube}
-	p3 := &test.Params{Triggers: cs2.Triggers, Kube: cs2.Kube}
+	cs.Triggers.Resources = cb.TriggersAPIResourceList("v1beta1", []string{"eventlistener"})
+	tdc := testDynamic.Options{}
+	dc, err := tdc.Client(
+		cb.UnstructuredV1beta1EL(els[0], "v1beta1"),
+	)
+	if err != nil {
+		t.Errorf("unable to create dynamic client: %v", err)
+	}
+
+	cs2.Triggers.Resources = cb.TriggersAPIResourceList("v1beta1", []string{"eventlistener"})
+	tdc2 := testDynamic.Options{}
+	dc2, err := tdc2.Client(
+		cb.UnstructuredV1beta1EL(els2[0], "v1beta1"),
+		cb.UnstructuredV1beta1EL(els2[1], "v1beta1"),
+	)
+	if err != nil {
+		t.Errorf("unable to create dynamic client: %v", err)
+	}
+
+	p := &test.Params{Triggers: cs.Triggers, Kube: cs.Kube, Clock: clock, Dynamic: dc}
+	p2 := &test.Params{Triggers: cs2.Triggers, Kube: cs2.Kube, Clock: clock, Dynamic: dc2}
+	p3 := &test.Params{Triggers: cs2.Triggers, Kube: cs2.Kube, Clock: clock, Dynamic: dc2}
 	p3.SetNamespace("unknown")
 
 	testParams := []struct {
@@ -95,7 +116,11 @@ func TestEventListener_GetAllEventListenerNames(t *testing.T) {
 
 	for _, tp := range testParams {
 		t.Run(tp.name, func(t *testing.T) {
-			got, err := GetAllEventListenerNames(tp.params.Triggers, tp.params.Namespace())
+			cs, err := tp.params.Clients()
+			if err != nil {
+				t.Errorf("unexpected Error, not able to get clients")
+			}
+			got, err := GetAllEventListenerNames(cs, tp.params.Namespace())
 			if err != nil {
 				t.Errorf("unexpected Error")
 			}
@@ -107,7 +132,7 @@ func TestEventListener_GetAllEventListenerNames(t *testing.T) {
 func TestEventListener_List(t *testing.T) {
 	clock := clockwork.NewFakeClock()
 
-	els := []*v1alpha1.EventListener{
+	els := []*v1beta1.EventListener{
 		{
 			ObjectMeta: v1.ObjectMeta{
 				Name:              "el1",
@@ -117,7 +142,7 @@ func TestEventListener_List(t *testing.T) {
 		},
 	}
 
-	els2 := []*v1alpha1.EventListener{
+	els2 := []*v1beta1.EventListener{
 		{
 			ObjectMeta: v1.ObjectMeta{
 				Name:              "el1",
@@ -144,8 +169,27 @@ func TestEventListener_List(t *testing.T) {
 			Name: "ns",
 		},
 	}}})
-	p := &test.Params{Triggers: cs.Triggers, Kube: cs.Kube}
-	p2 := &test.Params{Triggers: cs2.Triggers, Kube: cs2.Kube}
+	cs.Triggers.Resources = cb.TriggersAPIResourceList("v1beta1", []string{"eventlistener"})
+	tdc := testDynamic.Options{}
+	dc, err := tdc.Client(
+		cb.UnstructuredV1beta1EL(els[0], "v1beta1"),
+	)
+	if err != nil {
+		t.Errorf("unable to create dynamic client: %v", err)
+	}
+
+	cs2.Triggers.Resources = cb.TriggersAPIResourceList("v1beta1", []string{"eventlistener"})
+	tdc2 := testDynamic.Options{}
+	dc2, err := tdc2.Client(
+		cb.UnstructuredV1beta1EL(els2[0], "v1beta1"),
+		cb.UnstructuredV1beta1EL(els2[1], "v1beta1"),
+	)
+	if err != nil {
+		t.Errorf("unable to create dynamic client: %v", err)
+	}
+
+	p := &test.Params{Triggers: cs.Triggers, Kube: cs.Kube, Clock: clock, Dynamic: dc}
+	p2 := &test.Params{Triggers: cs2.Triggers, Kube: cs2.Kube, Clock: clock, Dynamic: dc2}
 
 	testParams := []struct {
 		name   string
@@ -166,7 +210,11 @@ func TestEventListener_List(t *testing.T) {
 
 	for _, tp := range testParams {
 		t.Run(tp.name, func(t *testing.T) {
-			got, err := List(tp.params.Triggers, "ns")
+			cs, err := tp.params.Clients()
+			if err != nil {
+				t.Errorf("unexpected Error, not able to get clients")
+			}
+			got, err := List(cs, v1.ListOptions{}, "ns")
 			if err != nil {
 				t.Errorf("unexpected Error")
 			}
