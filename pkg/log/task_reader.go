@@ -20,6 +20,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/briandowns/spinner"
 	"github.com/pkg/errors"
 	"github.com/tektoncd/cli/pkg/pods"
 	tr "github.com/tektoncd/cli/pkg/taskrun"
@@ -192,8 +193,10 @@ func (r *Reader) readPodLogs(podC <-chan string, podErrC <-chan error, follow bo
 			var pod *corev1.Pod
 			var err error
 
+			s := spinner.New(spinner.CharSets[14], 100*time.Millisecond) // Build our new spinner
 			if follow {
 				pod, err = p.Wait()
+				s.Start() // Start the spinner
 			} else {
 				pod, err = p.Get()
 			}
@@ -202,6 +205,7 @@ func (r *Reader) readPodLogs(podC <-chan string, podErrC <-chan error, follow bo
 			}
 			steps := filterSteps(pod, r.allSteps, r.steps)
 			r.readStepsLogs(logC, errC, steps, p, follow)
+			s.Stop()
 		}
 	}()
 

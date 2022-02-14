@@ -19,6 +19,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/briandowns/spinner"
 	"github.com/tektoncd/cli/pkg/pipeline"
 	"github.com/tektoncd/cli/pkg/pipelinerun"
 	trh "github.com/tektoncd/cli/pkg/taskrun"
@@ -178,10 +179,12 @@ func (r *Reader) pipeLogs(logC chan<- Log, errC chan<- error) {
 	}
 
 	for tlogC != nil || terrC != nil {
+		s := spinner.New(spinner.CharSets[14], 100*time.Millisecond) // Build our new spinner
 		select {
 		case l, ok := <-tlogC:
 			if !ok {
 				tlogC = nil
+				s.Start() // Start the spinner
 				continue
 			}
 			logC <- Log{Task: l.Task, Step: l.Step, Log: l.Log}
@@ -189,10 +192,12 @@ func (r *Reader) pipeLogs(logC chan<- Log, errC chan<- error) {
 		case e, ok := <-terrC:
 			if !ok {
 				terrC = nil
+				s.Start() // Start the spinner
 				continue
 			}
 			errC <- fmt.Errorf("failed to get logs for task %s : %s", r.task, e)
 		}
+		s.Stop()
 	}
 }
 
