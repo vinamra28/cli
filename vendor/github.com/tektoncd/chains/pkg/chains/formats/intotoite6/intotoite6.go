@@ -35,7 +35,6 @@ import (
 )
 
 const (
-	tektonID                     = "https://tekton.dev/attestations/chains@v2"
 	commitParam                  = "CHAINS-GIT_COMMIT"
 	urlParam                     = "CHAINS-GIT_URL"
 	ChainsReproducibleAnnotation = "chains.tekton.dev/reproducible"
@@ -83,7 +82,7 @@ func (i *InTotoIte6) generateAttestationFromTaskRun(tr *v1beta1.TaskRun) (interf
 			Builder: slsa.ProvenanceBuilder{
 				ID: i.builderID,
 			},
-			BuildType:   tektonID,
+			BuildType:   fmt.Sprintf("%s/%s", tr.GetGroupVersionKind().GroupVersion().String(), tr.GetGroupVersionKind().Kind),
 			Invocation:  invocation(tr),
 			BuildConfig: buildConfig(tr),
 			Metadata:    metadata(tr),
@@ -149,6 +148,21 @@ func GetSubjectDigests(tr *v1beta1.TaskRun, logger *zap.SugaredLogger) []intoto.
 				},
 			})
 		}
+	}
+
+	sts := artifacts.ExtractSignableTargetFromResults(tr, logger)
+	for _, obj := range sts {
+		splits := strings.Split(obj.Digest, ":")
+		if len(splits) != 2 {
+			logger.Errorf("Digest %s should be in the format of: algorthm:abc", obj.Digest)
+			continue
+		}
+		subjects = append(subjects, intoto.Subject{
+			Name: obj.URI,
+			Digest: slsa.DigestSet{
+				splits[0]: splits[1],
+			},
+		})
 	}
 
 	if tr.Spec.Resources == nil {
@@ -252,16 +266,6 @@ func (i *InTotoIte6) Type() formats.PayloadType {
 // with specified names.
 func gitInfo(tr *v1beta1.TaskRun) (commit string, url string) {
 	// Scan for git params to use for materials
-	for _, p := range tr.Spec.Params {
-		if p.Name == commitParam {
-			commit = p.Value.StringVal
-			continue
-		}
-		if p.Name == urlParam {
-			url = p.Value.StringVal
-		}
-	}
-
 	if tr.Status.TaskSpec != nil {
 		for _, p := range tr.Status.TaskSpec.Params {
 			if p.Default == nil {
@@ -274,6 +278,16 @@ func gitInfo(tr *v1beta1.TaskRun) (commit string, url string) {
 			if p.Name == urlParam {
 				url = p.Default.StringVal
 			}
+		}
+	}
+
+	for _, p := range tr.Spec.Params {
+		if p.Name == commitParam {
+			commit = p.Value.StringVal
+			continue
+		}
+		if p.Name == urlParam {
+			url = p.Value.StringVal
 		}
 	}
 
