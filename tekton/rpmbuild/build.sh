@@ -9,7 +9,7 @@ set -ex
 
 [[ -z ${GITHUB_TOKEN} ]] && { echo "We need a GITHUB_TOKEN".; exit 1;}
 
-curl -H "Authorization: token ${GITHUB_TOKEN}" -o ${TMPD}/output.json -s https://api.github.com/repos/tektoncd/cli/releases/latest
+curl -H "Authorization: token ${GITHUB_TOKEN}" -o ${TMPD}/output.json -s https://api.github.com/repos/tektoncd/cli/releases/tags/v0.25.1
 version=$(python3 -c "import sys, json;x=json.load(sys.stdin);print(x['tag_name'])" < ${TMPD}/output.json)
 version=${version/v}
 
